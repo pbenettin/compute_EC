@@ -1,4 +1,4 @@
-# EC_phreeqc
+# compute_EC.pqi
 
 This file can be used to compute the electrical conductivity of individual ion species in streamflow using the software phreeqc. The approach is described in:
 [1] Benettin, P., & van Breukelen, B. M. (2017). Decomposing the Bulk Electrical Conductivity of Streamflow To Recover Individual Solute Concentrations at High Frequency. Environmental Science & Technology Letters, acs.estlett.7b00472. https://doi.org/10.1021/acs.estlett.7b00472
