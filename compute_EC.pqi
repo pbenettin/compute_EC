@@ -1,0 +1,125 @@
+# DATABASE (insert here the path to phreeqc.dat file, e.g. C:\Program Files\...\database\phreeqc.dat)
+
+######
+# PHREEQC file to compute the Electrical Conductivity (EC) of the individual ion species of a solution
+# Input chemical analytes are to be inserted in the SOLUTION_SPREAD block
+# Outputs are printed to file according to SELECTED_OUTPUT and USER_PUNCH blocks
+# by Boris van Breukelen and Paolo Benettin, April 2017
+######
+
+# the SOLUTION_SPREAD block allows inserting a table with chemical analytes for the computations
+# note: default units are here set to mg/l, but variations for individual elements can be specified (see Alkalinity below)
+# note: default temperature is 25 degrees C
+# note: a "description" column with IDs (e.g. A1, A2,.. An) is required.
+# note: headings needs to respect PHREEQC standard: NO3- is N(5), SO4-2 is S(6)
+# note: gram formula weight has to be specified for nitrate if mass units are grams of NO3
+# note: empty entries are allowed and considered as zero concentration or missing values
+
+
+SOLUTION_SPREAD
+    -units    mg/l
+#-----------------------------------------------------------------------------------------------------
+ Description	   pH	 Alkalinity	  N(5)	 S(6)	   Cl	   Na	    Mg	     K	    Ca
+           	     	      ueq/l gfw 62	      	     	     	     	      	      	      
+          A1	 5.10	     -17.10	 0.123	 1.22	 7.15	 3.96	 0.682	 0.09	 0.521
+# A2	etc
+# ...
+# An	etc
+#-----------------------------------------------------------------------------------------------------
+
+SELECTED_OUTPUT 1	   # this block allows writing an output file. Here we print the result of EC computation
+-reset false           # avoid printing default output 
+-file output_EC.dat    # output file name
+
+USER_PUNCH 1 	       # print user-defined quantities to the selected_output file
+    -headings Sample_ID	EC_tot	EC_majel	EC_error[%]	EC_H	EC_Ca	EC_Cl	EC_K	EC_NO3	EC_Na	EC_Mg	EC_SO4	EC_HCO3	charge_error [%]
+    -start
+
+# define some useful constant for the computations
+10 F = 96485.33289     # C per mol
+20 R = 8.3144621       # J per K per mol
+30 ff1 = 0.6 / 1^0.5   # group together some constants 
+40 ff2 = 0.6 / 2^0.5   # group together some constants
+50 temp25_corr = 1     # no temperature correction needed to get the default EC at 25 C 
+# 50 temp25_corr = TK/298 * (viscosity298) / (viscosityTK) # to get EC at TK temperature
+
+# calculate conductivity for the individual species
+# note: lg("species") is the log10 of the Debye-Huckel activity coefficient of a solution species
+# note: DIFF_C("species") is the diffusion coefficient at 25 C of a solution species
+# note: the molar conductivity is in S/m / (mol/m3 = mmol/L), so multiply mol("species") by 1000 to obtain mmol/L
+# note: to report EC is in uS/cm, multiplication by 10'000 is needed
+110 EC_H =  ((1^2 * F^2)/(R*TK)) * (DIFF_C("H+") * temp25_corr) * mol("H+") * 1000 * 10^(lg("H+") * ff1) * 10000
+120 EC_Ca = ((2^2 * F^2)/(R*TK)) * (DIFF_C("Ca+2") * temp25_corr) * mol("Ca+2") * 1000 * 10^(lg("Ca+2") * ff2) * 10000
+130 EC_Cl = ((1^2 * F^2)/(R*TK)) * (DIFF_C("Cl-") * temp25_corr) * mol("Cl-") * 1000 * 10^(lg("Cl-") * ff1) * 10000
+140 EC_K = ((1^2 * F^2)/(R*TK)) * (DIFF_C("K+") * temp25_corr) * mol("K+") * 1000 * 10^(lg("K+") * ff1) * 10000
+150 EC_NO3 = ((1^2 * F^2)/(R*TK)) * (DIFF_C("NO3-") * temp25_corr) * mol("NO3-") * 1000 * 10^(lg("NO3-") * ff1) * 10000
+160 EC_Na = ((1^2 * F^2)/(R*TK)) * (DIFF_C("Na+") * temp25_corr) * mol("Na+") * 1000 * 10^(lg("Na+") * ff1) * 10000
+170 EC_Mg = ((2^2 * F^2)/(R*TK)) * (DIFF_C("Mg+2") * temp25_corr) * mol("Mg+2") * 1000 * 10^(lg("Mg+2") * ff2) * 10000
+180 EC_SO4 = ((2^2 * F^2)/(R*TK)) * (DIFF_C("SO4-2") * temp25_corr) * mol("SO4-2") * 1000 * 10^(lg("SO4-2") * ff2) * 10000
+190 EC_HCO3 = ((1^2 * F^2)/(R*TK)) * (DIFF_C("HCO3-") * temp25_corr) * mol("HCO3-") * 1000 * 10^(lg("HCO3-") * ff1) * 10000
+195 EC_majel = EC_H + EC_Ca + EC_Cl + EC_K + EC_NO3 + EC_Na + EC_Mg + EC_SO4 + EC_HCO3
+
+# print results to output
+198 PUNCH DESCRIPTION
+200 PUNCH sc                     #total EC as computed by PHREEQC
+205 PUNCH EC_majel               #total EC by considering major species only
+207 PUNCH 100*((sc-EC_majel)/sc) #relative error on EC by considering major species only
+210 PUNCH EC_H
+220 PUNCH EC_Ca
+230 PUNCH EC_Cl
+240 PUNCH EC_K
+250 PUNCH EC_NO3
+260 PUNCH EC_Na
+270 PUNCH EC_Mg
+280 PUNCH EC_SO4
+290 PUNCH EC_HCO3
+300 PUNCH PERCENT_ERROR # Percent charge-balance error: 100*(cations-|anions|)/(cations+|anions|)
+    -end
+
+
+
+SELECTED_OUTPUT 2	   # this block allows writing an output file. Here the coefficients 'a' are printed
+-file output_a.dat     # output file name
+
+USER_PUNCH 2 	       # print user-defined quantities to the selected_output file
+    -headings Sample_ID	a_H	a_Ca	a_Cl	a_K	a_NO3	a_Na	a_Mg	a_SO4	a_HCO3
+    -start
+
+# define some useful constant for the computations
+10 F = 96485.33289     # C per mol
+20 R = 8.3144621       # J per K per mol
+30 ff1 = 0.6 / 1^0.5   # group together some constants 
+40 ff2 = 0.6 / 2^0.5   # group together some constants
+50 temp25_corr = 1     # no temperature correction if EC is needed at 25 degrees C 
+# 50 temp25_corr = 298/TK * (viscosityTK) / (viscosity298) # to get standard EC at 25 degree C
+
+# calculate the variable a = molar_conductivity*electrochemical_activity_coefficient/molar_mass [uS/cm / (mg/L)] for the individual species
+# note: lg("species") is the log10 of the Debye-Huckel activity coefficient of a solution species
+# note: GFW("species") is the molar mass of the species [grams]
+# note: DIFF_C("species") is the log10 of the Debye-Huckel activity coefficient of a solution species
+# note: to report EC is in uS/cm, multiplication by 10'000 is needed
+110 a_H =  ((1^2 * F^2)/(R*TK)) * (DIFF_C("H+") * temp25_corr) * 10^(lg("H+") * ff1) / GFW("H+") * 10000
+120 a_Ca = ((2^2 * F^2)/(R*TK)) * (DIFF_C("Ca+2") * temp25_corr) * 10^(lg("Ca+2") * ff2) / GFW("Ca+2") * 10000
+130 a_Cl = ((1^2 * F^2)/(R*TK)) * (DIFF_C("Cl-") * temp25_corr) * 10^(lg("Cl-") * ff1) / GFW("Cl-") * 10000
+140 a_K = ((1^2 * F^2)/(R*TK)) * (DIFF_C("K+") * temp25_corr) * 10^(lg("K+") * ff1) / GFW("K+") * 10000
+150 a_NO3 = ((1^2 * F^2)/(R*TK)) * (DIFF_C("NO3-") * temp25_corr) * 10^(lg("NO3-") * ff1) / GFW("NO3-") * 10000
+160 a_Na = ((1^2 * F^2)/(R*TK)) * (DIFF_C("Na+") * temp25_corr) * 10^(lg("Na+") * ff1) / GFW("Na+") * 10000
+170 a_Mg = ((2^2 * F^2)/(R*TK)) * (DIFF_C("Mg+2") * temp25_corr) * 10^(lg("Mg+2") * ff2) / GFW("Mg+2") * 10000
+180 a_SO4 = ((2^2 * F^2)/(R*TK)) * (DIFF_C("SO4-2") * temp25_corr) * 10^(lg("SO4-2") * ff2) / GFW("SO4-2") * 10000
+190 a_HCO3 = ((1^2 * F^2)/(R*TK)) * (DIFF_C("HCO3-") * temp25_corr) * 10^(lg("HCO3-") * ff1) / GFW("HCO3-") * 10000
+
+# print results to output
+198 PUNCH DESCRIPTION
+210 PUNCH a_H
+220 PUNCH a_Ca
+230 PUNCH a_Cl
+240 PUNCH a_K
+250 PUNCH a_NO3
+260 PUNCH a_Na
+270 PUNCH a_Mg
+280 PUNCH a_SO4
+290 PUNCH a_HCO3
+    -end
+
+
+END
